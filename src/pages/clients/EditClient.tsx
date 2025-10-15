@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { clientService } from "@/services/clientService";
 import { ArrowLeft } from "lucide-react";
 
 export default function EditClient() {
@@ -13,40 +14,103 @@ export default function EditClient() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    companyName: "",
+    company_name: "",
     address: "",
     city: "",
     country: "",
-    taxId: "",
+    tax_id: "",
     notes: "",
   });
 
+  useEffect(() => {
+    if (id) {
+      loadClient();
+    }
+  }, [id]);
+
+  const loadClient = async () => {
+    if (!id) return;
+    
+    try {
+      const data = await clientService.getById(id);
+      setFormData({
+        name: data.name || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        company_name: data.company_name || "",
+        address: data.address || "",
+        city: data.city || "",
+        country: data.country || "",
+        tax_id: data.tax_id || "",
+        notes: data.notes || "",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to load client",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!id) return;
+
     setLoading(true);
 
     try {
-      // TODO: Update client in database
+      await clientService.update(id, formData);
       toast({
         title: "Success",
         description: "Client updated successfully",
       });
-      navigate("/clients");
-    } catch (error) {
+      navigate(`/clients/${id}`);
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to update client",
+        description: error.message || "Failed to update client",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
+  const handleDelete = async () => {
+    if (!id || !confirm("Are you sure you want to delete this client?")) return;
+    
+    try {
+      await clientService.delete(id);
+      toast({
+        title: "Success",
+        description: "Client deleted successfully",
+      });
+      navigate("/clients");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete client",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loadingData) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -99,8 +163,8 @@ export default function EditClient() {
                 <Label htmlFor="companyName">Company Name</Label>
                 <Input
                   id="companyName"
-                  value={formData.companyName}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                  value={formData.company_name}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -131,8 +195,8 @@ export default function EditClient() {
                 <Label htmlFor="taxId">Tax ID</Label>
                 <Input
                   id="taxId"
-                  value={formData.taxId}
-                  onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                  value={formData.tax_id}
+                  onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
                 />
               </div>
             </div>
@@ -151,8 +215,11 @@ export default function EditClient() {
               <Button type="submit" disabled={loading}>
                 {loading ? "Saving..." : "Save Changes"}
               </Button>
-              <Button type="button" variant="outline" onClick={() => navigate("/clients")}>
+              <Button type="button" variant="outline" onClick={() => navigate(`/clients/${id}`)}>
                 Cancel
+              </Button>
+              <Button type="button" variant="destructive" onClick={handleDelete} className="ml-auto">
+                Delete Client
               </Button>
             </div>
           </CardContent>

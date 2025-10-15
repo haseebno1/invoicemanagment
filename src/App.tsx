@@ -19,6 +19,7 @@ import ClientsList from "./pages/clients/ClientsList";
 import CreateClient from "./pages/clients/CreateClient";
 import EditClient from "./pages/clients/EditClient";
 import ClientDetail from "./pages/clients/ClientDetail";
+import InvoiceDetail from "./pages/invoices/InvoiceDetail";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/clients/create" element={<ProtectedRoute><AppLayout><CreateClient /></AppLayout></ProtectedRoute>} />
               <Route path="/clients/:id" element={<ProtectedRoute><AppLayout><ClientDetail /></AppLayout></ProtectedRoute>} />
               <Route path="/clients/:id/edit" element={<ProtectedRoute><AppLayout><EditClient /></AppLayout></ProtectedRoute>} />
+              <Route path="/invoices/:id" element={<ProtectedRoute><AppLayout><InvoiceDetail /></AppLayout></ProtectedRoute>} />
               <Route path="/reports" element={<ProtectedRoute><AppLayout><Reports /></AppLayout></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
               
