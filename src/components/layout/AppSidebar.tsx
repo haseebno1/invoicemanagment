@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   FileText,
@@ -7,7 +7,9 @@ import {
   Settings,
   Moon,
   Sun,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -34,9 +36,16 @@ const menuItems = [
 export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { signOut } = useAuth();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -69,7 +78,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="mt-auto p-4">
+        <div className="mt-auto p-4 space-y-2">
           <Button
             variant="ghost"
             size={open ? "default" : "icon"}
@@ -87,6 +96,15 @@ export function AppSidebar() {
                 {open && <span className="ml-2">Light Mode</span>}
               </>
             )}
+          </Button>
+          <Button
+            variant="ghost"
+            size={open ? "default" : "icon"}
+            onClick={handleLogout}
+            className="w-full justify-start text-destructive hover:text-destructive"
+          >
+            <LogOut className="h-4 w-4" />
+            {open && <span className="ml-2">Logout</span>}
           </Button>
         </div>
       </SidebarContent>

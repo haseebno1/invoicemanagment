@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -19,6 +20,13 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signUp, user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,25 +49,39 @@ export default function Register() {
       return;
     }
 
-    setLoading(true);
-
-    try {
-      // TODO: Implement Supabase authentication
-      toast({
-        title: "Registration functionality",
-        description: "Authentication will be implemented in Phase 5",
-      });
-      // Temporary redirect for demo
-      // navigate("/dashboard");
-    } catch (error) {
+    if (formData.password.length < 6) {
       toast({
         title: "Error",
-        description: "Failed to create account. Please try again.",
+        description: "Password must be at least 6 characters",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    setLoading(true);
+
+    const { error } = await signUp(
+      formData.email,
+      formData.password,
+      formData.name,
+      formData.companyName
+    );
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Account created! Please check your email to verify your account.",
+      });
+      navigate("/login");
+    }
+    
+    setLoading(false);
   };
 
   return (

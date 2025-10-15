@@ -6,33 +6,32 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const { toast } = useToast();
+  const { resetPassword } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    try {
-      // TODO: Implement Supabase password reset
-      toast({
-        title: "Password reset functionality",
-        description: "Password reset will be implemented in Phase 5",
-      });
-      setSubmitted(true);
-    } catch (error) {
+    const { error } = await resetPassword(email);
+
+    if (error) {
       toast({
         title: "Error",
-        description: "Failed to send reset email. Please try again.",
+        description: error.message || "Failed to send reset email. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+    } else {
+      setSubmitted(true);
     }
+    
+    setLoading(false);
   };
 
   if (submitted) {
