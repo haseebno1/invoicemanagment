@@ -41,8 +41,19 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
+        <div className="mt-8 pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <p>&copy; {new Date().getFullYear()} InvoiceForge. All rights reserved.</p>
+          <p className="flex items-center gap-2">
+            Made with <span className="text-red-500 animate-pulse">❤️</span> by{" "}
+            <a 
+              href="https://github.com/haseebno1" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-medium hover:text-primary transition-colors"
+            >
+              Abdul Haseeb
+            </a>
+          </p>
         </div>
       </div>
     </footer>

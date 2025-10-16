@@ -1,26 +1,41 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({
     full_name: "",
     company_name: "",
     email: "",
   });
+  const [preferences, setPreferences] = useState({
+    defaultCurrency: "USD",
+    defaultTaxRate: "0",
+    defaultPaymentTerms: "30",
+    emailNotifications: true,
+    overdueReminders: true,
+  });
 
   useEffect(() => {
     if (user) {
       loadProfile();
+      loadPreferences();
     }
   }, [user]);
 
@@ -42,6 +57,44 @@ export default function Settings() {
       }
     } catch (error: any) {
       console.error("Error loading profile:", error);
+    }
+  };
+
+  const loadPreferences = () => {
+    const saved = localStorage.getItem("invoice_preferences");
+    if (saved) {
+      setPreferences(JSON.parse(saved));
+    }
+  };
+
+  const savePreferences = () => {
+    localStorage.setItem("invoice_preferences", JSON.stringify(preferences));
+    toast({
+      title: "Success",
+      description: "Preferences saved successfully",
+    });
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.admin.deleteUser(user!.id);
+      if (error) throw error;
+      
+      await signOut();
+      navigate("/");
+      toast({
+        title: "Account Deleted",
+        description: "Your account has been permanently deleted",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete account",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -148,16 +201,138 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="preferences">
-          <Card>
-            <CardHeader>
-              <CardTitle>Invoice Preferences</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Invoice preferences will be available in later phases
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Invoice Preferences</CardTitle>
+                <CardDescription>Set default values for new invoices</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="defaultCurrency">Default Currency</Label>
+                  <Select 
+                    value={preferences.defaultCurrency} 
+                    onValueChange={(value) => setPreferences({...preferences, defaultCurrency: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD - US Dollar</SelectItem>
+                      <SelectItem value="EUR">EUR - Euro</SelectItem>
+                      <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                      <SelectItem value="PKR">PKR - Pakistani Rupee</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="defaultTaxRate">Default Tax Rate (%)</Label>
+                  <Input
+                    id="defaultTaxRate"
+                    type="number"
+                    value={preferences.defaultTaxRate}
+                    onChange={(e) => setPreferences({...preferences, defaultTaxRate: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="defaultPaymentTerms">Default Payment Terms (Days)</Label>
+                  <Input
+                    id="defaultPaymentTerms"
+                    type="number"
+                    value={preferences.defaultPaymentTerms}
+                    onChange={(e) => setPreferences({...preferences, defaultPaymentTerms: e.target.value})}
+                  />
+                </div>
+
+                <Button onClick={savePreferences}>Save Preferences</Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Notifications</CardTitle>
+                <CardDescription>Manage your notification preferences</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Email Notifications</Label>
+                    <p className="text-sm text-muted-foreground">Receive email updates for invoices</p>
+                  </div>
+                  <Switch
+                    checked={preferences.emailNotifications}
+                    onCheckedChange={(checked) => setPreferences({...preferences, emailNotifications: checked})}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Overdue Reminders</Label>
+                    <p className="text-sm text-muted-foreground">Get notified about overdue invoices</p>
+                  </div>
+                  <Switch
+                    checked={preferences.overdueReminders}
+                    onCheckedChange={(checked) => setPreferences({...preferences, overdueReminders: checked})}
+                  />
+                </div>
+
+                <Button onClick={savePreferences}>Save Preferences</Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Customize the application appearance</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Theme</Label>
+                  <Select value={theme} onValueChange={setTheme}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="system">System</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-destructive">
+              <CardHeader>
+                <CardTitle className="text-destructive">Danger Zone</CardTitle>
+                <CardDescription>Irreversible actions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive">Delete Account</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your account
+                        and remove all your data from our servers, including all invoices, clients, and payments.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground">
+                        {loading ? "Deleting..." : "Delete Account"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

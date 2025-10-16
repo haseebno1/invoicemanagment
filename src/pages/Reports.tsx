@@ -1,24 +1,69 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Download, FileText, TrendingUp, Users, DollarSign } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { invoiceService } from "@/services/invoiceService";
 import { clientService } from "@/services/clientService";
 import { exportService } from "@/services/exportService";
+import { analyticsService } from "@/services/analyticsService";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 export default function Reports() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [reportType, setReportType] = useState("revenue");
-  const [dateFrom, setDateFrom] = useState<Date>();
-  const [dateTo, setDateTo] = useState<Date>();
+  const [dateFrom, setDateFrom] = useState<Date>(startOfMonth(subMonths(new Date(), 5)));
+  const [dateTo, setDateTo] = useState<Date>(endOfMonth(new Date()));
   const [loading, setLoading] = useState(false);
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      loadAnalytics();
+    }
+  }, [user]);
+
+  const loadAnalytics = async () => {
+    if (!user) return;
+    
+    try {
+      const data = await analyticsService.getDashboardStats(user.id);
+      setAnalytics(data);
+      
+      // Generate chart data for last 6 months
+      const months = [];
+      for (let i = 5; i >= 0; i--) {
+        const date = subMonths(new Date(), i);
+        const monthStart = startOfMonth(date);
+        const monthEnd = endOfMonth(date);
+        
+        const invoices = await invoiceService.getAll(user.id);
+        const monthInvoices = invoices.filter(inv => {
+          const invDate = new Date(inv.issue_date);
+          return invDate >= monthStart && invDate <= monthEnd;
+        });
+        
+        const revenue = monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.paid_amount.toString()), 0);
+        
+        months.push({
+          month: format(date, 'MMM yyyy'),
+          revenue: revenue,
+          invoices: monthInvoices.length
+        });
+      }
+      
+      setChartData(months);
+    } catch (error) {
+      console.error("Error loading analytics:", error);
+    }
+  };
 
   const handleExportCSV = async () => {
     if (!user) return;
@@ -128,43 +173,56 @@ export default function Reports() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+            <div className="text-2xl font-bold">
+              ${analytics?.totalRevenue.toLocaleString() || "0"}
+            </div>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Invoices</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24</div>
-            <p className="text-xs text-muted-foreground">+3 from last month</p>
+            <div className="text-2xl font-bold">{analytics?.totalInvoices || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {analytics?.paidInvoices || 0} paid, {analytics?.unpaidInvoices || 0} unpaid
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Outstanding Amount</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+12.5%</div>
-            <p className="text-xs text-muted-foreground">Year over year</p>
+            <div className="text-2xl font-bold">
+              ${analytics?.outstandingAmount.toLocaleString() || "0"}
+            </div>
+            <p className="text-xs text-muted-foreground">Pending payments</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Report Preview</CardTitle>
+          <CardTitle>Revenue Trend</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-16">
-          <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">
-            Select report parameters and click "Generate Report" to view data
-          </p>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="revenue" fill="hsl(var(--primary))" name="Revenue ($)" />
+              <Bar dataKey="invoices" fill="hsl(var(--accent))" name="Invoices" />
+            </BarChart>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
     </div>
