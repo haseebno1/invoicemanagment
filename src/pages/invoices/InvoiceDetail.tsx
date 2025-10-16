@@ -2,17 +2,24 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Download, Trash2, DollarSign } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { invoiceService } from "@/services/invoiceService";
+import { paymentService } from "@/services/paymentService";
+import { pdfService } from "@/services/pdfService";
+import { PaymentRecordDialog } from "@/components/PaymentRecordDialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [invoice, setInvoice] = useState<any>(null);
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -24,8 +31,12 @@ export default function InvoiceDetail() {
     if (!id) return;
     
     try {
-      const data = await invoiceService.getById(id);
-      setInvoice(data);
+      const [invoiceData, paymentsData] = await Promise.all([
+        invoiceService.getById(id),
+        paymentService.getByInvoiceId(id),
+      ]);
+      setInvoice(invoiceData);
+      setPayments(paymentsData);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -35,6 +46,21 @@ export default function InvoiceDetail() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!invoice) return;
+    
+    const profile = user?.user_metadata;
+    pdfService.downloadInvoicePDF(invoice, {
+      name: profile?.company_name || profile?.full_name,
+      email: profile?.email,
+    });
+    
+    toast({
+      title: "Success",
+      description: "PDF downloaded successfully",
+    });
   };
 
   const handleDelete = async () => {
@@ -102,7 +128,13 @@ export default function InvoiceDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          {invoice.balance > 0 && (
+            <Button onClick={() => setPaymentDialogOpen(true)}>
+              <DollarSign className="mr-2 h-4 w-4" />
+              Record Payment
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleDownloadPDF}>
             <Download className="mr-2 h-4 w-4" />
             Download PDF
           </Button>
@@ -216,6 +248,44 @@ export default function InvoiceDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Payment History */}
+      {payments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {payments.map((payment) => (
+                <div key={payment.id} className="flex justify-between items-center p-3 bg-muted/50 rounded">
+                  <div>
+                    <p className="font-medium">
+                      {invoice.currency} {Number(payment.amount).toFixed(2)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(payment.payment_date).toLocaleDateString()}
+                    </p>
+                    {payment.notes && (
+                      <p className="text-sm text-muted-foreground mt-1">{payment.notes}</p>
+                    )}
+                  </div>
+                  <Badge>Paid</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <PaymentRecordDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        invoiceId={id!}
+        balance={invoice?.balance || 0}
+        currency={invoice?.currency || "USD"}
+        onSuccess={loadInvoice}
+      />
     </div>
   );
 }

@@ -6,11 +6,49 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Download, FileText, TrendingUp, Users, DollarSign } from "lucide-react";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { invoiceService } from "@/services/invoiceService";
+import { clientService } from "@/services/clientService";
+import { exportService } from "@/services/exportService";
 
 export default function Reports() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [reportType, setReportType] = useState("revenue");
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
+  const [loading, setLoading] = useState(false);
+
+  const handleExportCSV = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      if (reportType === "revenue") {
+        const invoices = await invoiceService.getAll(user.id);
+        const formatted = exportService.formatInvoicesForExport(invoices);
+        exportService.exportToCSV(formatted, "invoices-report");
+      } else if (reportType === "client") {
+        const clients = await clientService.getAll(user.id);
+        const formatted = exportService.formatClientsForExport(clients);
+        exportService.exportToCSV(formatted, "clients-report");
+      }
+      
+      toast({
+        title: "Success",
+        description: "Report exported successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to export report",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -75,13 +113,9 @@ export default function Reports() {
               <FileText className="mr-2 h-4 w-4" />
               Generate Report
             </Button>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExportCSV} disabled={loading}>
               <Download className="mr-2 h-4 w-4" />
-              Export PDF
-            </Button>
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              {loading ? "Exporting..." : "Export CSV"}
             </Button>
           </div>
         </CardContent>
